@@ -1,0 +1,41 @@
+[package]
+name = "bbs-ffi"
+version = "0.3.0"
+edition = "2021"
+description = "Rust FFI crate for AckAgent anonymous attestation: BBS+ signatures, selective disclosure proofs, and pseudonyms"
+license = "MIT"
+publish = false
+
+[lib]
+crate-type = ["staticlib", "cdylib", "lib"]
+name = "bbs_ffi"
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "uniffi-bindgen.rs"
+
+[dependencies]
+# BBS+ signatures with blind signing and pseudonym support (BLS12-381-SHA-256).
+# Feature chain: bbsplus -> bbsplus_blind -> bbsplus_nym.
+zkryptium = { version = "0.6", features = ["bbsplus", "bbsplus_blind", "bbsplus_nym"] }
+
+# UniFFI bindings (Swift via XCFramework)
+uniffi = { version = "0.31", features = ["cli", "wasm-unstable-single-threaded"] }
+
+# Error handling
+thiserror = "2"
+
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# Enable browser/JS entropy source for wasm32-unknown-unknown.
+getrandom = { version = "0.2", features = ["js"] }
+# Pin wasm-bindgen so the crate version matches the wasm-bindgen-cli in CI.
+wasm-bindgen = "=0.2.114"
+
+[profile.release]
+lto = "thin"
+opt-level = 'z'
+strip = true
+
+[dev-dependencies]
+hex = "0.4"
