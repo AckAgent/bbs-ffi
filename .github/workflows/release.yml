@@ -1,0 +1,115 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos-arm64:
+    name: Build macOS arm64
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+      - run: cargo build --target aarch64-apple-darwin --release
+      - run: cp target/aarch64-apple-darwin/release/libbbs_ffi.a libbbs_ffi-macos-arm64.a
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64
+          path: |
+            libbbs_ffi-macos-arm64.a
+            headers/
+
+  build-linux-amd64:
+    name: Build Linux amd64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - run: cargo build --release
+      - run: cp target/release/libbbs_ffi.a libbbs_ffi-linux-amd64.a
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-amd64
+          path: libbbs_ffi-linux-amd64.a
+
+  build-linux-arm64:
+    name: Build Linux arm64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+      - run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+      - run: |
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
+            cargo build --target aarch64-unknown-linux-gnu --release
+      - run: cp target/aarch64-unknown-linux-gnu/release/libbbs_ffi.a libbbs_ffi-linux-arm64.a
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-arm64
+          path: libbbs_ffi-linux-arm64.a
+
+  build-wasm:
+    name: Build WASM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - run: cargo install wasm-bindgen-cli@0.2.114
+      - run: cargo build --target wasm32-unknown-unknown --release
+      - run: wasm-bindgen target/wasm32-unknown-unknown/release/bbs_ffi.wasm --target web --out-dir wasm-out/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wasm
+          path: wasm-out/
+
+  build-xcframework:
+    name: Build XCFramework
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+      - run: |
+          BBS_FFI_XCFRAMEWORK_BUILD_OUTPUT=./AckAgentBBSBindings.xcframework \
+          BBS_FFI_SKIP_RUSTUP_TARGET_INSTALL=1 \
+            ./build-xcframework.sh
+      - run: zip -r AckAgentBBSBindings.xcframework.zip AckAgentBBSBindings.xcframework
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xcframework
+          path: AckAgentBBSBindings.xcframework.zip
+
+  release:
+    name: Create Release
+    needs: [build-macos-arm64, build-linux-amd64, build-linux-arm64, build-wasm, build-xcframework]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            libbbs_ffi-macos-arm64.a
+            libbbs_ffi-linux-amd64.a
+            libbbs_ffi-linux-arm64.a
+            wasm-out/*
+            AckAgentBBSBindings.xcframework.zip
+            headers/bbs_ffiFFI.h
+            include/bbs_ffi.h
+          generate_release_notes: true
