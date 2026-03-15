@@ -75,27 +75,9 @@ jobs:
           name: wasm
           path: wasm-out/
 
-  build-xcframework:
-    name: Build XCFramework
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-ios,aarch64-apple-ios-sim
-      - run: |
-          BBS_FFI_XCFRAMEWORK_BUILD_OUTPUT=./AckAgentBBSBindings.xcframework \
-          BBS_FFI_SKIP_RUSTUP_TARGET_INSTALL=1 \
-            ./build-xcframework.sh
-      - run: zip -r AckAgentBBSBindings.xcframework.zip AckAgentBBSBindings.xcframework
-      - uses: actions/upload-artifact@v4
-        with:
-          name: xcframework
-          path: AckAgentBBSBindings.xcframework.zip
-
   release:
     name: Create Release
-    needs: [build-macos-arm64, build-linux-amd64, build-linux-arm64, build-wasm, build-xcframework]
+    needs: [build-macos-arm64, build-linux-amd64, build-linux-arm64, build-wasm]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -109,7 +91,6 @@ jobs:
             libbbs_ffi-linux-amd64.a
             libbbs_ffi-linux-arm64.a
             wasm-out/*
-            AckAgentBBSBindings.xcframework.zip
             headers/bbs_ffiFFI.h
             include/bbs_ffi.h
           generate_release_notes: true
